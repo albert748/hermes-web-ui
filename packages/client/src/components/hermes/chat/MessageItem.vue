@@ -1098,21 +1098,21 @@ onBeforeUnmount(() => {
   }
 
   &.assistant {
-    flex-direction: row;
     align-items: flex-start;
     gap: 8px;
 
     .msg-body {
-      max-width: 80%;
+      max-width: 100%;
+      flex-direction: column;
       position: relative;
       z-index: 1;
     }
 
     .msg-avatar {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       flex-shrink: 0;
-      margin-top: 2px;
+      margin-bottom: 4px;
     }
 
     .message-bubble {
