@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { NButton, useMessage } from 'naive-ui'
+import { NButton, NTabs, NTabPane, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import MarkdownRenderer from '@/components/hermes/chat/MarkdownRenderer.vue'
 import { fetchMemory, saveMemory, type MemoryData } from '@/api/hermes/skills'
@@ -11,6 +11,7 @@ const message = useMessage()
 const profilesStore = useProfilesStore()
 const loading = ref(false)
 const data = ref<MemoryData | null>(null)
+const activeTab = ref<'memory' | 'user' | 'soul'>('memory')
 const editingSection = ref<'memory' | 'user' | 'soul' | null>(null)
 const editContent = ref('')
 const saving = ref(false)
@@ -32,9 +33,10 @@ async function loadMemory() {
   }
 }
 
-function startEdit(section: 'memory' | 'user' | 'soul') {
-  editingSection.value = section
-  editContent.value = data.value?.[section] || ''
+function startEdit() {
+  if (!activeTab.value) return
+  editingSection.value = activeTab.value
+  editContent.value = data.value?.[activeTab.value] || ''
 }
 
 function cancelEdit() {
@@ -94,146 +96,120 @@ const displaySoul = computed(() => (data.value?.soul || '').replace(/§/g, '\n\n
 
     <div class="memory-content">
       <div v-if="loading && !data" class="memory-loading">{{ t('common.loading') }}</div>
-      <div v-else class="memory-sections">
-          <!-- My Notes -->
-          <div class="memory-section">
-            <div class="section-header">
-              <div class="section-title-row">
-                <span class="section-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                </span>
-                <span class="section-title">{{ t('memory.myNotes') }}</span>
+      <div v-else class="memory-tabs">
+        <NTabs v-model:value="activeTab" type="line" @update:value="cancelEdit">
+          <NTabPane name="memory" :tab="t('memory.myNotes')">
+            <div class="memory-section">
+              <div class="section-toolbar">
                 <span v-if="data?.memory_mtime" class="section-mtime">{{ formatTime(data.memory_mtime) }}</span>
+                <NButton v-if="editingSection !== 'memory'" size="tiny" quaternary @click="startEdit">
+                  <template #icon>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </template>
+                  {{ t('common.edit') }}
+                </NButton>
               </div>
-              <NButton v-if="editingSection !== 'memory'" size="tiny" quaternary @click="startEdit('memory')">
-                <template #icon>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </template>
-                {{ t('common.edit') }}
-              </NButton>
-            </div>
 
-            <!-- View mode -->
-            <div v-if="editingSection !== 'memory'" class="section-body">
-              <MarkdownRenderer v-if="!memoryEmpty" :content="displayMemory" />
-              <p v-else class="empty-text">{{ t('memory.noNotes') }}</p>
-            </div>
+              <!-- View mode -->
+              <div v-if="editingSection !== 'memory'" class="section-body">
+                <MarkdownRenderer v-if="!memoryEmpty" :content="displayMemory" />
+                <p v-else class="empty-text">{{ t('memory.noNotes') }}</p>
+              </div>
 
-            <!-- Edit mode -->
-            <div v-else class="section-edit">
-              <textarea
-                v-model="editContent"
-                class="edit-textarea"
-                :placeholder="t('memory.notesPlaceholder')"
-                spellcheck="false"
-              ></textarea>
-              <div class="edit-actions">
-                <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
-                <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+              <!-- Edit mode -->
+              <div v-else class="section-edit">
+                <textarea
+                  v-model="editContent"
+                  class="edit-textarea"
+                  :placeholder="t('memory.notesPlaceholder')"
+                  spellcheck="false"
+                ></textarea>
+                <div class="edit-actions">
+                  <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
+                  <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+                </div>
               </div>
             </div>
-          </div>
+          </NTabPane>
 
-          <!-- User Profile -->
-          <div class="memory-section">
-            <div class="section-header">
-              <div class="section-title-row">
-                <span class="section-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </span>
-                <span class="section-title">{{ t('memory.userProfile') }}</span>
+          <NTabPane name="user" :tab="t('memory.userProfile')">
+            <div class="memory-section">
+              <div class="section-toolbar">
                 <span v-if="data?.user_mtime" class="section-mtime">{{ formatTime(data.user_mtime) }}</span>
+                <NButton v-if="editingSection !== 'user'" size="tiny" quaternary @click="startEdit">
+                  <template #icon>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </template>
+                  {{ t('common.edit') }}
+                </NButton>
               </div>
-              <NButton v-if="editingSection !== 'user'" size="tiny" quaternary @click="startEdit('user')">
-                <template #icon>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </template>
-                {{ t('common.edit') }}
-              </NButton>
-            </div>
 
-            <!-- View mode -->
-            <div v-if="editingSection !== 'user'" class="section-body">
-              <MarkdownRenderer v-if="!userEmpty" :content="displayUser" />
-              <p v-else class="empty-text">{{ t('memory.noProfile') }}</p>
-            </div>
+              <!-- View mode -->
+              <div v-if="editingSection !== 'user'" class="section-body">
+                <MarkdownRenderer v-if="!userEmpty" :content="displayUser" />
+                <p v-else class="empty-text">{{ t('memory.noProfile') }}</p>
+              </div>
 
-            <!-- Edit mode -->
-            <div v-else class="section-edit">
-              <textarea
-                v-model="editContent"
-                class="edit-textarea"
-                :placeholder="t('memory.profilePlaceholder')"
-                spellcheck="false"
-              ></textarea>
-              <div class="edit-actions">
-                <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
-                <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+              <!-- Edit mode -->
+              <div v-else class="section-edit">
+                <textarea
+                  v-model="editContent"
+                  class="edit-textarea"
+                  :placeholder="t('memory.profilePlaceholder')"
+                  spellcheck="false"
+                ></textarea>
+                <div class="edit-actions">
+                  <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
+                  <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+                </div>
               </div>
             </div>
-          </div>
+          </NTabPane>
 
-          <!-- Soul -->
-          <div class="memory-section">
-            <div class="section-header">
-              <div class="section-title-row">
-                <span class="section-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                    <line x1="9" y1="9" x2="9.01" y2="9" />
-                    <line x1="15" y1="9" x2="15.01" y2="9" />
-                  </svg>
-                </span>
-                <span class="section-title">{{ t('memory.soul') }}</span>
+          <NTabPane name="soul" :tab="t('memory.soul')">
+            <div class="memory-section">
+              <div class="section-toolbar">
                 <span v-if="data?.soul_mtime" class="section-mtime">{{ formatTime(data.soul_mtime) }}</span>
+                <NButton v-if="editingSection !== 'soul'" size="tiny" quaternary @click="startEdit">
+                  <template #icon>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </template>
+                  {{ t('common.edit') }}
+                </NButton>
               </div>
-              <NButton v-if="editingSection !== 'soul'" size="tiny" quaternary @click="startEdit('soul')">
-                <template #icon>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </template>
-                {{ t('common.edit') }}
-              </NButton>
-            </div>
 
-            <!-- View mode -->
-            <div v-if="editingSection !== 'soul'" class="section-body">
-              <MarkdownRenderer v-if="!soulEmpty" :content="displaySoul" />
-              <p v-else class="empty-text">{{ t('memory.noSoul') }}</p>
-            </div>
+              <!-- View mode -->
+              <div v-if="editingSection !== 'soul'" class="section-body">
+                <MarkdownRenderer v-if="!soulEmpty" :content="displaySoul" />
+                <p v-else class="empty-text">{{ t('memory.noSoul') }}</p>
+              </div>
 
-            <!-- Edit mode -->
-            <div v-else class="section-edit">
-              <textarea
-                v-model="editContent"
-                class="edit-textarea"
-                :placeholder="t('memory.soulPlaceholder')"
-                spellcheck="false"
-              ></textarea>
-              <div class="edit-actions">
-                <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
-                <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+              <!-- Edit mode -->
+              <div v-else class="section-edit">
+                <textarea
+                  v-model="editContent"
+                  class="edit-textarea"
+                  :placeholder="t('memory.soulPlaceholder')"
+                  spellcheck="false"
+                ></textarea>
+                <div class="edit-actions">
+                  <NButton size="small" @click="cancelEdit">{{ t('common.cancel') }}</NButton>
+                  <NButton size="small" type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</NButton>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </NTabPane>
+        </NTabs>
+      </div>
     </div>
   </div>
 </template>
@@ -264,52 +240,45 @@ const displaySoul = computed(() => (data.value?.soul || '').replace(/§/g, '\n\n
   color: $text-muted;
 }
 
-.memory-sections {
-  display: flex;
-  gap: 16px;
+.memory-tabs {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 
-  @media (max-width: $breakpoint-mobile) {
+  :deep(.n-tabs) {
+    flex: 1;
+    display: flex;
     flex-direction: column;
+    min-height: 0;
+
+    .n-tabs-nav {
+      flex-shrink: 0;
+    }
+
+    .n-tabs-content {
+      flex: 1;
+      min-height: 0;
+
+      .n-tab-pane {
+        height: 100%;
+      }
+    }
   }
 }
 
 .memory-section {
-  flex: 1;
-  min-height: 0;
-  border: 1px solid $border-color;
-  border-radius: $radius-md;
-  overflow: hidden;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.section-header {
+.section-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: $bg-secondary;
-  border-bottom: 1px solid $border-color;
+  padding: 8px 0 4px;
   flex-shrink: 0;
-}
-
-.section-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-icon {
-  color: $text-secondary;
-  display: flex;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: $text-primary;
 }
 
 .section-mtime {
